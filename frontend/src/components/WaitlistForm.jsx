@@ -1,61 +1,52 @@
-import { useState } from 'react'
+import { useState } from 'react';
 
 export default function WaitlistForm() {
-  const [email, setEmail] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [error, setError] = useState('')
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-
-    if (!email || !email.includes('@')) {
-      setError('Enter a valid email address.')
-      return
-    }
-
-    // TODO: replace with a real API call once the backend exists.
-    // For now this just simulates success so the flow can be tested.
-    console.log('Waitlist signup:', email)
-    setSubmitted(true)
-  }
-
-  if (submitted) {
-    return (
-      <section id="waitlist" className="px-6 py-24 text-center">
-        <p className="text-lg font-medium text-gray-900">You're on the list.</p>
-        <p className="mt-2 text-gray-600">We'll email you when AgentDesk is ready.</p>
-      </section>
-    )
+    e.preventDefault();
+    if (!email) return;
+    // TODO: wire this up to a real backend/email service later
+    setSubmitted(true);
   }
 
   return (
-    <section id="waitlist" className="px-6 py-24 text-center">
-      <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
-        Get early access
-      </h2>
-      <p className="mt-3 text-gray-600">
-        We'll let you know the moment AgentDesk is ready to try.
-      </p>
-      <form
-        onSubmit={handleSubmit}
-        className="mt-8 flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto"
-      >
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="flex-1 px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-        />
-        <button
-          type="submit"
-          className="bg-[var(--color-primary)] text-white font-medium px-6 py-3 rounded-md hover:opacity-90 transition"
-        >
-          Notify me
-        </button>
-      </form>
-      {error && <p className="mt-3 text-sm text-[var(--color-status-blocked)]">{error}</p>}
+    <section className="max-w-5xl mx-auto px-6 py-16 md:py-20 border-t border-border">
+      <div className="rounded-2xl px-8 py-12 md:py-16 text-center bg-accent-light">
+        <h2 className="font-display font-semibold text-2xl md:text-3xl">
+          Get early access
+        </h2>
+        <p className="mt-3 max-w-md mx-auto text-sm md:text-base text-text-secondary">
+          Be the first to try AgentDesk when it launches.
+        </p>
+
+        {submitted ? (
+          <p className="mt-6 text-sm font-medium text-accent">
+            You're on the list — we'll email you at launch.
+          </p>
+        ) : (
+          <form
+            onSubmit={handleSubmit}
+            className="mt-6 flex flex-col sm:flex-row gap-3 max-w-sm mx-auto"
+          >
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="flex-1 h-12 px-4 rounded-lg border border-border bg-surface text-sm outline-none focus:ring-2 focus:ring-accent"
+            />
+            <button
+              type="submit"
+              className="h-12 px-6 rounded-lg font-medium text-sm text-white bg-accent shrink-0"
+            >
+              Notify me
+            </button>
+          </form>
+        )}
+      </div>
     </section>
-  )
+  );
 }

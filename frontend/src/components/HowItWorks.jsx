@@ -1,43 +1,47 @@
 const steps = [
   {
-    title: 'Submit your tasks',
-    description: 'Describe what each agent should work on — as many as you want, in parallel.',
+    number: '01',
+    title: 'Submit a task',
+    description: 'Describe what you need done — AgentDesk queues it instantly.',
   },
   {
-    title: 'Agents run in isolation',
-    description: 'Each task runs in its own git worktree, so nothing overwrites anything else.',
+    number: '02',
+    title: 'Agent works',
+    description: 'Runs in an isolated workspace, in parallel with your other tasks.',
   },
   {
-    title: 'Get notified when it matters',
-    description: 'A desktop alert fires only when an agent genuinely needs your input.',
+    number: '03',
+    title: 'You get notified',
+    description: 'Only when it genuinely needs a decision — nothing else.',
   },
   {
-    title: 'Review, then merge',
-    description: 'See the diff, approve or reject, right from the dashboard.',
+    number: '04',
+    title: 'Review & merge',
+    description: 'See the diff, approve it, done — from one dashboard.',
   },
-]
+];
 
 export default function HowItWorks() {
   return (
-    <section className="px-6 py-24 max-w-4xl mx-auto">
-      <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 text-center mb-16">
-        How it works
+    <section className="max-w-5xl mx-auto px-6 py-16 md:py-20 border-t border-border">
+      <p className="font-mono text-sm text-accent">// how it works</p>
+      <h2 className="font-display font-semibold text-2xl md:text-3xl mt-3">
+        Four steps. Zero babysitting.
       </h2>
-      <div className="grid md:grid-cols-2 gap-x-12 gap-y-12">
-        {steps.map((step, i) => (
-          <div key={step.title} className="flex gap-4">
-            <span className="text-[var(--color-primary)] font-mono text-sm mt-1">
-              {String(i + 1).padStart(2, '0')}
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 mt-10">
+        {steps.map((step) => (
+          <div key={step.number}>
+            <span className="font-mono text-sm text-text-secondary">
+              {step.number}
             </span>
-            <div>
-              <h3 className="font-medium text-gray-900">{step.title}</h3>
-              <p className="mt-1.5 text-gray-600 text-sm leading-relaxed">
-                {step.description}
-              </p>
-            </div>
+            <h3 className="font-medium text-base mt-2">{step.title}</h3>
+            <p className="text-sm mt-2 leading-relaxed text-text-secondary">
+              {step.description}
+            </p>
           </div>
         ))}
       </div>
     </section>
-  )
+  );
 }
