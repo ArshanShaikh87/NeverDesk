@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* ---- Design tokens (from our earlier design-system discussion) ---- */
+@theme {
+  --color-primary: #4338ca;       /* deep indigo — primary actions */
+  --color-status-working: #2563eb;
+  --color-status-needs-input: #d97706;
+  --color-status-done: #16a34a;
+  --color-status-blocked: #dc2626;
+
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-body);
+}
