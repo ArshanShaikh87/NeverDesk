@@ -13,7 +13,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-bg/80 backdrop-blur border-b border-border">
       <nav className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="#" className="font-display font-semibold text-lg">
-          AgentDesk
+          NeverDesk
         </a>
 
         {/* Desktop links */}
