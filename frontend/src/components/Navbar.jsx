@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const links = [
   { label: 'Problem', href: '#problem' },
@@ -27,12 +28,12 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-          <a
-            href="#waitlist"
+          <Link
+            to="/dashboard"
             className="h-10 px-5 rounded-lg font-medium text-sm text-white bg-accent flex items-center"
           >
-            Join waitlist
-          </a>
+            Go to Dashboard
+          </Link>
         </div>
 
         {/* Mobile menu button */}
@@ -80,13 +81,13 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-          <a
-            href="#waitlist"
+          <Link
+            to="/dashboard"
             onClick={() => setOpen(false)}
             className="h-11 px-5 rounded-lg font-medium text-sm text-white bg-accent flex items-center justify-center"
           >
-            Join waitlist
-          </a>
+            Go to Dashboard
+          </Link>
         </div>
       </div>
     </header>
