@@ -18,6 +18,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const http = require('http');
 const { Server } = require('socket.io');
+const { z } = require('zod');
+const logger = require('./logger');
 const db = require('./db');
 
 const JWT_SECRET = 'your-super-secret-jwt-key-agentdesk';
@@ -37,9 +39,28 @@ io.on('connection', (socket) => {
       const payload = jwt.verify(token, JWT_SECRET);
       socket.join(payload.userId.toString());
     } catch (err) {
+      logger.error('Socket authentication failed:', err);
       socket.disconnect();
     }
   });
+});
+
+const signupSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
+});
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required')
+});
+
+const taskSchema = z.object({
+  description: z.string().min(1, 'Task description is required')
+});
+
+const respondSchema = z.object({
+  response: z.string().min(1, 'Response is required')
 });
 
 const MAX_PARALLEL_AGENTS = 3; // matches the plan-tier limit from our NFRs
@@ -81,7 +102,7 @@ function runTask(task) {
   activeCount++;
   db.updateTaskStatus(task.id, 'working');
   io.to(task.user_id.toString()).emit('task_update');
-  console.log(`[Task ${task.id}] Started: "${task.description}"`);
+  logger.info(`[Task ${task.id}] Started: "${task.description}"`);
 
   // Still a dummy command for now — this stands in for the real
   // `claude-code --task "..."` call.
@@ -95,7 +116,7 @@ function runTask(task) {
 
   proc.stdout.on('data', (data) => {
     const line = data.toString().trim();
-    console.log(`[Task ${task.id}] ${line}`);
+    logger.info(`[Task ${task.id}] output: ${line}`);
 
     if (looksLikeItNeedsInput(line)) {
       db.updateTaskStatus(task.id, 'needs_input', line);
@@ -110,7 +131,7 @@ function runTask(task) {
       db.updateTaskStatus(task.id, code === 0 ? 'done' : 'blocked');
     }
     io.to(task.user_id.toString()).emit('task_update');
-    console.log(`[Task ${task.id}] Finished.`);
+    logger.info(`[Task ${task.id}] Finished with code ${code}.`);
     processQueue(); // free slot -> try to start the next queued task
   });
 }
@@ -128,29 +149,37 @@ function processQueue() {
 // ---- API ----
 
 // --- Auth Endpoints ---
-app.post('/auth/signup', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  
-  const existing = db.getUserByEmail(email);
-  if (existing) return res.status(400).json({ error: 'Email already exists' });
+app.post('/auth/signup', async (req, res, next) => {
+  try {
+    const { email, password } = signupSchema.parse(req.body);
+    const existing = db.getUserByEmail(email);
+    if (existing) return res.status(400).json({ error: 'Email already exists' });
 
-  const hash = await bcrypt.hash(password, 10);
-  const user = db.createUser(email, hash);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, email: user.email } });
+    const hash = await bcrypt.hash(password, 10);
+    const user = db.createUser(email, hash);
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    logger.info(`New user signed up: ${email}`);
+    res.json({ token, user: { id: user.id, email: user.email } });
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.post('/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = db.getUserByEmail(email);
-  if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+app.post('/auth/login', async (req, res, next) => {
+  try {
+    const { email, password } = loginSchema.parse(req.body);
+    const user = db.getUserByEmail(email);
+    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
-  const valid = await bcrypt.compare(password, user.password_hash);
-  if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
 
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, email: user.email } });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    logger.info(`User logged in: ${email}`);
+    res.json({ token, user: { id: user.id, email: user.email } });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // --- Settings Endpoints ---
@@ -173,20 +202,23 @@ app.get('/settings/api-key', requireAuth, (req, res) => {
 
 // --- Tasks Endpoints ---
 // Create a new task
-app.post('/tasks', requireAuth, (req, res) => {
-  const { description } = req.body;
-  if (!description || !description.trim()) {
-    return res.status(400).json({ error: 'Task description is required' });
+app.post('/tasks', requireAuth, (req, res, next) => {
+  try {
+    const { description } = taskSchema.parse(req.body);
+    const task = db.createTask(description.trim(), req.userId);
+    processQueue(); // try to start it immediately if a slot is free
+    logger.info(`User ${req.userId} created task ${task.id}`);
+    res.status(201).json(task);
+  } catch (error) {
+    next(error);
   }
-
-  const task = db.createTask(description.trim(), req.userId);
-  processQueue(); // try to start it immediately if a slot is free
-  res.status(201).json(task);
 });
 
-// List all tasks with current status
+// List all tasks with current status (paginated)
 app.get('/tasks', requireAuth, (req, res) => {
-  res.json(db.getAllTasks(req.userId));
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = parseInt(req.query.offset) || 0;
+  res.json(db.getAllTasks(req.userId, limit, offset));
 });
 
 // Get one task
@@ -197,19 +229,34 @@ app.get('/tasks/:id', requireAuth, (req, res) => {
 });
 
 // Respond to a task that's waiting on input
-app.post('/tasks/:id/respond', requireAuth, (req, res) => {
-  const task = db.getTaskById(req.params.id, req.userId);
-  if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
-  if (task.status !== 'needs_input') {
-    return res.status(400).json({ error: 'Task is not waiting for input' });
-  }
+app.post('/tasks/:id/respond', requireAuth, (req, res, next) => {
+  try {
+    const { response } = respondSchema.parse(req.body);
+    const task = db.getTaskById(req.params.id, req.userId);
+    if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
+    if (task.status !== 'needs_input') {
+      return res.status(400).json({ error: 'Task is not waiting for input' });
+    }
 
-  db.updateTaskStatus(task.id, 'working', null);
-  io.to(req.userId.toString()).emit('task_update');
-  res.json({ message: 'Response received, task resumed' });
+    db.updateTaskStatus(task.id, 'working', null);
+    io.to(req.userId.toString()).emit('task_update');
+    logger.info(`User ${req.userId} responded to task ${task.id}`);
+    res.json({ message: 'Response received, task resumed' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==== Global Error Handler ====
+app.use((err, req, res, next) => {
+  if (err instanceof z.ZodError) {
+    return res.status(400).json({ error: err.errors[0].message, details: err.errors });
+  }
+  logger.error('Unhandled Server Error: %O', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = 3001;
 server.listen(PORT, () => {
-  console.log(`AgentDesk backend running on http://localhost:${PORT}`);
+  logger.info(`AgentDesk backend running on http://localhost:${PORT}`);
 });

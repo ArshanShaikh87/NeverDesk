@@ -63,8 +63,10 @@ function getTaskById(id, userId) {
   return db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').get(id, userId);
 }
 
-function getAllTasks(userId) {
-  return db.prepare('SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+function getAllTasks(userId, limit = 50, offset = 0) {
+  const tasks = db.prepare('SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(userId, limit, offset);
+  const total = db.prepare('SELECT COUNT(*) as count FROM tasks WHERE user_id = ?').get(userId).count;
+  return { tasks, total };
 }
 
 function getTaskByIdAdmin(id) {

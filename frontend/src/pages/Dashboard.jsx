@@ -29,9 +29,9 @@ export default function Dashboard() {
         return;
       }
       const data = await res.json();
-      setTasks(data);
+      setTasks(data.tasks || []);
       if (selectedTask) {
-        const updated = data.find(t => t.id === selectedTask.id);
+        const updated = (data.tasks || []).find(t => t.id === selectedTask.id);
         if (updated) setSelectedTask(updated);
       }
     } catch (err) {
