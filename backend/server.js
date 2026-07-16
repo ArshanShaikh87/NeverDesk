@@ -23,6 +23,8 @@ const logger = require('./logger');
 const db = require('./db');
 
 const JWT_SECRET = 'your-super-secret-jwt-key-agentdesk';
+const { encrypt, decrypt } = require('./crypto');
+const Anthropic = require('@anthropic-ai/sdk'); // npm install @anthropic-ai/sdk
 
 const app = express();
 app.use(cors());
@@ -57,6 +59,10 @@ const loginSchema = z.object({
 
 const taskSchema = z.object({
   description: z.string().min(1, 'Task description is required')
+});
+
+const apiKeySchema = z.object({
+  apiKey: z.string().regex(/^sk-ant-/, 'Invalid key format — Claude API keys start with "sk-ant-"')
 });
 
 const respondSchema = z.object({
@@ -183,14 +189,29 @@ app.post('/auth/login', async (req, res, next) => {
 });
 
 // --- Settings Endpoints ---
-app.post('/settings/api-key', requireAuth, (req, res) => {
-  const { apiKey } = req.body;
-  if (!apiKey) return res.status(400).json({ error: 'API key is required' });
-  
-  // Basic mock encryption for MVP (in production use real crypto AES-256)
-  const encryptedKey = Buffer.from(apiKey).toString('base64');
-  db.saveApiKey(req.userId, encryptedKey);
-  res.json({ message: 'API Key saved successfully' });
+app.post('/settings/api-key', requireAuth, async (req, res, next) => {
+  try {
+    const { apiKey } = apiKeySchema.parse(req.body);
+
+    // Real validation: test the key against Anthropic before saving
+    const anthropic = new Anthropic({ apiKey });
+    try {
+      await anthropic.messages.create({
+        model: 'claude-haiku-4-5',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+    } catch (apiErr) {
+      return res.status(400).json({ error: 'Invalid API key — Anthropic rejected it' });
+    }
+
+    const encryptedKey = encrypt(apiKey);
+    db.saveApiKey(req.userId, encryptedKey);
+    logger.info(`User ${req.userId} saved a validated API key`);
+    res.json({ message: 'API key validated and saved securely' });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/settings/api-key', requireAuth, (req, res) => {
