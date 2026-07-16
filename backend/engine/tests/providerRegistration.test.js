@@ -46,3 +46,50 @@ console.log(
         `[Q4] get("claude") returns correct object: ${claudeFromGet === claudeProvider ? '✅' : '❌'
         }`
 );
+
+
+/**
+ * Provider Detection Test
+ *
+ * Koi testing framework nahi — sirf plain Node script.
+ * Run: node engine/tests/providerDetection.test.js
+ *
+ * Ye sirf ClaudeProvider.detect() ko test karta hai.
+ * ProviderContract / ProviderManager already prove ho chuke hain.
+ *
+ * Verify:
+ *  Q1 - detect() ek object return karta hai
+ *  Q2 - object me installed, executablePath, error fields hain
+ *  Q3 - installed hone par path print ho, warna error print ho
+ */
+
+(async () => {
+        const provider = new ClaudeProvider();
+        const result = await provider.detect();
+
+        // --- Q1 & Q2: shape verification ---
+        const isObject = typeof result === 'object' && result !== null;
+        const hasRequiredFields =
+                isObject &&
+                'installed' in result &&
+                'executablePath' in result &&
+                'error' in result;
+
+        console.log('Provider Detection Test\n');
+        console.log(`Provider   : ${provider.name}`);
+        console.log(`Installed  : ${result.installed ? 'Yes' : 'No'}`);
+
+        // --- Q3: conditional output ---
+        if (result.installed) {
+                console.log(`Executable :\n${result.executablePath}`);
+        } else {
+                console.log(`Error      :\n${result.error}`);
+        }
+
+        console.log('\n--- Verification ---');
+        console.log(`[Q1] detect() returned an object: ${isObject ? '✅' : '❌'}`);
+        console.log(
+                `[Q2] Object has installed/executablePath/error fields: ${hasRequiredFields ? '✅' : '❌'
+                }`
+        );
+})();
