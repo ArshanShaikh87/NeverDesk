@@ -204,6 +204,63 @@ class ClaudeProvider extends ProviderContract {
                         }
                 });
         }
+        /**
+          * stop()
+          *
+          * Precondition check: if runtime.process is null, there's nothing to
+          * stop — this is a valid state, not an error.
+          *
+          * Deterministic lifecycle: kill() is only a termination REQUEST, not a
+          * guarantee. We wait for the 'exit' event before cleaning up and
+          * resolving, so callers never race against a process that's still
+          * technically alive.
+          *
+          * Never throws — always resolves to { stopped, error }.
+          */
+        async stop() {
+                return new Promise((resolve) => {
+                        const child = this.runtime.process;
+
+                        if (!child) {
+                                resolve({
+                                        stopped: false,
+                                        error: 'Provider is not running.',
+                                });
+                                return;
+                        }
+
+                        // Cleanup + resolve happens exactly once, however the process ends.
+                        const finalize = () => {
+                                child.removeAllListeners();
+                                this.runtime.process = null;
+
+                                resolve({
+                                        stopped: true,
+                                        error: null,
+                                });
+                        };
+
+                        child.once('exit', finalize);
+
+                        // If the process is already dead (or dies before it can be killed),
+                        // kill() throws synchronously in some environments rather than
+                        // emitting 'error' — guard so we still resolve deterministically.
+                        try {
+                                child.kill();
+                        } catch (err) {
+                                child.removeAllListeners();
+                                this.runtime.process = null;
+
+                                resolve({
+                                        stopped: false,
+                                        error: err.message || 'Failed to stop provider.',
+                                });
+                        }
+                });
+        }
+
+
+
 }
 
 module.exports = ClaudeProvider;
